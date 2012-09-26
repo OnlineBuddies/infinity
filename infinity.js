@@ -149,7 +149,7 @@
     lastPage = pages[pages.length - 1];
 
     if(!lastPage || !lastPage.hasVacancy()) {
-      lastPage = new Page(this);
+      lastPage = new Page(this, lastPage ? lastPage.bottom : 0);
       pages.push(lastPage);
     }
 
@@ -314,19 +314,16 @@
         pages = listView.pages,
         newPages = [];
 
-    newPage = new Page(listView);
-    newPages.push(newPage);
-
     for(index = 0, length = pages.length; index < length; index++) {
       currPage = pages[index];
       currItems = currPage.items;
       for(itemIndex = 0, pageLength = currItems.length; itemIndex < pageLength; itemIndex++) {
         currItem = currItems[itemIndex];
         nextItem = currItem.clone();
-        if(newPage.hasVacancy()) {
+        if(newPage && newPage.hasVacancy()) {
           newPage.append(nextItem);
         } else {
-          newPage = new Page(listView);
+          newPage = new Page(listView, currPage ? currPage.bottom : 0);
           newPages.push(newPage);
           newPage.append(nextItem);
         }
@@ -614,7 +611,7 @@
   // Pages are removed and added to the DOM wholesale as they come in and out
   // of view.
 
-  function Page(parent) {
+  function Page(parent, top) {
     this.parent = parent;
 
     this.items = [];
@@ -623,8 +620,8 @@
     this.id = PageRegistry.generatePageId(this);
     this.$el.attr(PAGE_ID_ATTRIBUTE, this.id);
 
-    this.top = 0;
-    this.bottom = 0;
+    this.top = top;
+    this.bottom = top;
     this.width = 0;
     this.height = 0;
 
@@ -645,16 +642,16 @@
   Page.prototype.append = function(item) {
     var items = this.items;
 
-    // Recompute coords, sizing.
-    if(items.length === 0) this.top = item.top;
     if (this.parent.floatWidth) {
-        if (items.length % (this.parent.width % this.parent.floatWidth) == 0) {
-            this.bottom = item.bottom;
+        this.width = this.parent.width;
+        var itemsPerRow = Math.floor(this.width / this.parent.floatWidth);
+        if (items.length % itemsPerRow === 1) {
+            this.bottom += item.height;
         }
     } else {
-        this.bottom = item.bottom;
+        this.bottom += item.height;
+        this.width = this.width > item.width ? this.width : item.width;
     }
-    this.width = this.width > item.width ? this.width : item.width;
     this.height = this.bottom - this.top;
 
     items.push(item);
@@ -694,7 +691,11 @@
   // Returns false if the Page is at max capacity; false otherwise.
 
   Page.prototype.hasVacancy = function() {
-    return this.height < $window.height() * config.PAGE_TO_SCREEN_RATIO;
+    if (this.parent.floatWidth && (this.items.length % (Math.floor(this.width / this.parent.floatWidth)) > 0)) {
+      return true;
+    } else {
+      return this.height < $window.height() * config.PAGE_TO_SCREEN_RATIO;
+    }
   };
 
 
@@ -846,7 +847,6 @@
 
     this.parent = null;
 
-    this.top = 0;
     this.bottom = 0;
     this.width = 0;
     this.height = 0;
@@ -859,7 +859,6 @@
   ListItem.prototype.clone = function() {
     var item = new ListItem(this.$el);
     item.top = this.top;
-    item.bottom = this.bottom;
     item.width = this.width;
     item.height = this.height;
     return item;
@@ -899,9 +898,7 @@
   function updateCoords(listItem, yOffset) {
     var $el = listItem.$el;
 
-    listItem.top = yOffset;
     listItem.height = $el.outerHeight(true);
-    listItem.bottom = listItem.top + listItem.height;
     listItem.width = $el.width();
   }
 
