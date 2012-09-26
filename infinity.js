@@ -80,6 +80,8 @@
     this.lazy = !!options.lazy;
     this.lazyFn = options.lazy || null;
 
+    this.floatWidth = options.floatWidth;
+
     initBuffer(this);
 
     this.top = this.$el.offset().top;
@@ -138,18 +140,24 @@
   ListView.prototype.append = function(obj) {
     if(!obj || !obj.length) return null;
 
-    var lastPage,
+    var lastPage, lastHeight,
         item = convertToItem(this, obj),
         pages = this.pages;
 
-    this.height += item.height;
-    this.$el.height(this.height);
+    this.width = this.$el.width();
 
     lastPage = pages[pages.length - 1];
 
     if(!lastPage || !lastPage.hasVacancy()) {
       lastPage = new Page(this);
       pages.push(lastPage);
+    }
+
+    lastHeight = lastPage.height;
+
+    if (lastPage.height != lastHeight) {
+        this.height += lastPage.height - lastHeight;
+        this.$el.height(this.height);
     }
 
     lastPage.append(item);
@@ -639,7 +647,13 @@
 
     // Recompute coords, sizing.
     if(items.length === 0) this.top = item.top;
-    this.bottom = item.bottom;
+    if (this.parent.floatWidth) {
+        if (items.length % (this.parent.width % this.parent.floatWidth) == 0) {
+            this.bottom = item.bottom;
+        }
+    } else {
+        this.bottom = item.bottom;
+    }
     this.width = this.width > item.width ? this.width : item.width;
     this.height = this.bottom - this.top;
 
